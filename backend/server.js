@@ -24,28 +24,48 @@ const app = express();
 // Create HTTP server for Socket.io
 const server = http.createServer(app);
 
-// Initialize Socket.io with CORS configuration
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://adichat-alpha.vercel.app"
+];
+
+app.use(cors({
+  origin: allowedOrigins,
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE"]
+}));
+
 const io = socketIo(server, {
   cors: {
-    origin: "http://localhost:5173", // Vite default port
+    origin: allowedOrigins,
     methods: ["GET", "POST"],
     credentials: true
   }
 });
 
-// Connect to MongoDB
-connectDB();
 
-// ========================
-// MIDDLEWARE
-// ========================
+// // Initialize Socket.io with CORS configuration
+// const io = socketIo(server, {
+//   cors: {
+//     origin: "http://localhost:5173", // Vite default port
+//     methods: ["GET", "POST"],
+//     credentials: true
+//   }
+// });
 
-// CORS middleware - allows requests from different origins
-app.use(cors({
-  origin: "http://localhost:5173", // Vite default port
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE"]
-}));
+// // Connect to MongoDB
+// connectDB();
+
+// // ========================
+// // MIDDLEWARE
+// // ========================
+
+// // CORS middleware - allows requests from different origins
+// app.use(cors({
+//   origin: "http://localhost:5173", // Vite default port
+//   credentials: true,
+//   methods: ["GET", "POST", "PUT", "DELETE"]
+// }));
 
 // Body parsing middleware - allows us to read JSON from requests
 app.use(express.json());
