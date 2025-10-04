@@ -21,27 +21,47 @@ const Dashboard = () => {
     sendMessage,
     sendAIMessage,
     loadMessages,
-    setMessages // ✅ ADD THIS
+    setMessages
   } = useChat()
 
-const handleSelectConversation = async (conversation) => {
-  console.log('💬 Selecting conversation:', conversation);
-  
-  if (!conversation) {
-    console.error('❌ No conversation provided');
-    return;
-  }
-  
-  if (!conversation._id) {
-    console.error('❌ Invalid conversation: missing _id', conversation);
-    return;
-  }
-  
-  setSelectedConversation(conversation);
-  
-  // ✅ FIXED: Let useChat handle loading messages automatically
-  console.log('🔄 Conversation selected - messages will load automatically');
-};
+  const [showSidebar, setShowSidebar] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobile = window.innerWidth < 768
+      setIsMobile(mobile)
+      // Auto-show sidebar on mobile when no conversation is selected
+      if (mobile && !selectedConversation) {
+        setShowSidebar(true)
+      }
+    }
+    
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [selectedConversation])
+
+  const handleSelectConversation = async (conversation) => {
+    console.log('💬 Selecting conversation:', conversation);
+    
+    if (!conversation) {
+      console.error('❌ No conversation provided');
+      return;
+    }
+    
+    if (!conversation._id) {
+      console.error('❌ Invalid conversation: missing _id', conversation);
+      return;
+    }
+    
+    setSelectedConversation(conversation);
+    if (isMobile) {
+      setShowSidebar(false)
+    }
+    console.log('🔄 Conversation selected - messages will load automatically');
+  };
 
   const handleSendMessage = (content, messageType = 'text', imageData = null) => {
     console.log('📤 Dashboard: Sending message:', { content, messageType, imageData });
@@ -60,6 +80,14 @@ const handleSelectConversation = async (conversation) => {
     }
   };
 
+  const toggleSidebar = () => {
+    setShowSidebar(!showSidebar)
+  }
+
+  const closeSidebar = () => {
+    setShowSidebar(false)
+  }
+
   useEffect(() => {
     console.log('📝 MESSAGES UPDATED:', messages.length, 'messages')
   }, [messages])
@@ -69,70 +97,116 @@ const handleSelectConversation = async (conversation) => {
   }, [selectedConversation])
 
   return (
-    <div className="h-screen bg-gray-50 flex overflow-hidden">
-      {/* Your existing JSX remains the same */}
-      <div className="w-80 flex-shrink-0">
+    <div className="h-screen bg-gradient-to-br from-gray-50 to-blue-50 flex overflow-hidden relative">
+      {/* Sidebar - Hidden on mobile when chat is open */}
+      <div className={`
+        ${isMobile 
+          ? `fixed inset-0 z-50 transform transition-transform duration-300 ease-in-out bg-white`
+          : 'relative'
+        }
+        ${showSidebar || !selectedConversation ? 'translate-x-0' : '-translate-x-full'}
+        w-80 md:w-96 lg:w-80 xl:w-96 flex-shrink-0 bg-white shadow-xl border-r border-gray-200
+        md:relative md:translate-x-0
+      `}>
         <Sidebar
           users={users}
           conversations={conversations}
           selectedConversation={selectedConversation}
           onSelectConversation={handleSelectConversation}
+          onMobileClose={closeSidebar}
         />
       </div>
 
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Connection Status */}
-        <div className={`flex-shrink-0 px-4 py-2 text-sm font-medium ${
-          isConnected ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-        }`}>
+      {/* Mobile Overlay - Only show when sidebar is open on mobile */}
+      {isMobile && showSidebar && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
+          onClick={closeSidebar}
+        />
+      )}
+
+      {/* Main Chat Area */}
+      <div className="flex-1 flex flex-col min-w-0 bg-white shadow-inner">
+        {/* Connection Status Bar */}
+        <div className={`flex-shrink-0 px-4 md:px-6 py-2 md:py-3 text-sm font-semibold ${
+          isConnected 
+            ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white' 
+            : 'bg-gradient-to-r from-red-500 to-pink-600 text-white'
+        } shadow-sm`}>
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-              <span>
-                {isConnected ? 'Connected to server' : 'Disconnected from server'}
+            <div className="flex items-center space-x-2 md:space-x-3">
+              <div className={`w-2 h-2 md:w-3 md:h-3 rounded-full ${isConnected ? 'bg-white' : 'bg-white animate-pulse'}`}></div>
+              <span className="text-xs md:text-sm">
+                {isConnected ? 'Connected' : 'Connecting...'}
               </span>
             </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-gray-600">
+            <div className="flex items-center space-x-2 md:space-x-4">
+              <span className="text-white/90 text-xs md:text-sm font-medium hidden sm:block">
                 {selectedConversation 
                   ? `Chatting with ${selectedConversation.isAI ? selectedConversation.username : selectedConversation.user?.username}` 
-                  : `Welcome, ${user?.username}`
+                  : `Welcome, ${user?.username}!`
                 }
               </span>
+              
+              {/* Mobile menu button */}
+              {isMobile && (
+                <button
+                  onClick={toggleSidebar}
+                  className="bg-white/20 hover:bg-white/30 text-white p-1.5 rounded-lg transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
+                </button>
+              )}
+              
               <button
                 onClick={logout}
-                className="bg-gray-200 hover:bg-gray-300 text-gray-900 font-medium py-1 px-3 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 text-sm"
+                className="bg-white/20 hover:bg-white/30 text-white font-medium py-1 md:py-1.5 px-2 md:px-4 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white/50 text-xs md:text-sm transform hover:scale-105"
               >
-                Logout
+                {isMobile ? 'Logout' : 'Logout'}
               </button>
             </div>
           </div>
         </div>
 
-        <div className="flex-shrink-0">
-          <ChatHeader conversation={selectedConversation} />
-        </div>
+        {/* Chat Header */}
+        {selectedConversation && (
+          <div className="flex-shrink-0 bg-white border-b border-gray-200 shadow-sm">
+            <ChatHeader 
+              conversation={selectedConversation} 
+              onMenuClick={toggleSidebar}
+              isMobile={isMobile}
+            />
+          </div>
+        )}
 
+        {/* Main Content Area */}
         <div className="flex-1 flex flex-col min-h-0">
           {selectedConversation ? (
             <>
               {loading ? (
-                <div className="flex-1 flex items-center justify-center">
+                <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-gray-50 to-blue-50">
                   <div className="text-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                    <p className="text-gray-600">Loading messages...</p>
+                    <div className="animate-spin rounded-full h-8 w-8 md:h-12 md:w-12 border-b-2 border-blue-600 mx-auto mb-2 md:mb-4"></div>
+                    <p className="text-gray-600 text-sm md:text-base font-medium">Loading messages...</p>
+                    <p className="text-gray-400 text-xs md:text-sm mt-1">Please wait a moment</p>
                   </div>
                 </div>
               ) : (
                 <>
-                  <div className="flex-shrink-0 p-2 bg-gray-100 border-b">
-                    <p className="text-xs text-gray-600 text-center">
-                      {messages.length} messages • Chatting with {selectedConversation.isAI ? selectedConversation.username : selectedConversation.user?.username}
-                      {selectedConversation.isAI && ' 🤖'}
-                    </p>
-                  </div>
+                  {/* Messages Count - Hidden on mobile to save space */}
+                  {!isMobile && (
+                    <div className="flex-shrink-0 px-4 md:px-6 py-2 md:py-3 bg-gray-50 border-b border-gray-200">
+                      <p className="text-xs text-gray-600 text-center font-medium">
+                        💬 {messages.length} messages • Chatting with {selectedConversation.isAI ? selectedConversation.username : selectedConversation.user?.username}
+                        {selectedConversation.isAI && ' 🤖 AI Assistant'}
+                      </p>
+                    </div>
+                  )}
                   
-                  <div className="flex-1 min-h-0">
+                  {/* Messages Area */}
+                  <div className="flex-1 min-h-0 bg-gradient-to-b from-white to-gray-50">
                     <MessageList 
                       messages={messages} 
                       typingUsers={typingUsers}
@@ -141,7 +215,8 @@ const handleSelectConversation = async (conversation) => {
                 </>
               )}
               
-              <div className="flex-shrink-0">
+              {/* Message Input */}
+              <div className="flex-shrink-0 bg-white border-t border-gray-200 shadow-lg">
                 <MessageInput
                   onSendMessage={handleSendMessage}
                   receiverId={selectedConversation?.isAI ? selectedConversation._id : selectedConversation?.user?._id}
@@ -149,25 +224,49 @@ const handleSelectConversation = async (conversation) => {
               </div>
             </>
           ) : (
-            <div className="flex-1 flex items-center justify-center">
-              <div className="text-center">
-                <div className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                  </svg>
+            /* Welcome Screen */
+            <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-gray-50 to-blue-50 p-4">
+              <div className="text-center max-w-2xl w-full">
+                <div className="w-20 h-20 md:w-32 md:h-32 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4 md:mb-8 shadow-2xl">
+                  <span className="text-white font-bold text-2xl md:text-4xl">AC</span>
                 </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  {users.length > 0 ? 'Select a user to start chatting' : 'Welcome to AdiChat'}
+                <h3 className="text-2xl md:text-4xl font-bold text-gray-900 mb-4 md:mb-6 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                  AdiChat Messenger
                 </h3>
-                <p className="text-gray-500 max-w-md">
+                <p className="text-gray-600 text-base md:text-lg mb-6 md:mb-8 leading-relaxed max-w-md mx-auto px-4">
                   {users.length > 0 
-                    ? `Choose from ${users.length + 1} available users (including Grok AI) to start a conversation. Your messages will be delivered in real-time.`
-                    : 'No other users found. Ask someone to register so you can chat with them!'
+                    ? `Connect and chat with ${users.length + 1} amazing people including our AI assistant. Start meaningful conversations today!`
+                    : 'Be the first to join! Invite friends to experience real-time messaging with AdiChat.'
                   }
                 </p>
-                <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                  <p className="text-sm text-blue-700">
-                    💡 <strong>Try Grok AI</strong> - Your friendly AI assistant is always available to chat!
+                
+                {/* AI Assistant Card */}
+                <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl border border-blue-200 p-4 md:p-6 mb-6 md:mb-8 shadow-lg max-w-md mx-auto">
+                  <div className="flex items-center space-x-3 md:space-x-4 mb-2 md:mb-3">
+                    <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center shadow-lg">
+                      <span className="text-white font-bold text-xs md:text-sm">AI</span>
+                    </div>
+                    <div>
+                      <h3 className="text-gray-900 font-bold text-base md:text-lg">Adi AI Assistant</h3>
+                      <p className="text-gray-600 text-xs md:text-sm">Always ready to help and chat</p>
+                    </div>
+                  </div>
+                  <p className="text-gray-700 text-xs md:text-sm leading-relaxed">
+                    Your intelligent AI companion is here to answer questions, help with tasks, and engage in meaningful conversations 24/7.
+                  </p>
+                </div>
+
+                {/* Security Note */}
+                <div className="border-t border-gray-200 pt-4 md:pt-6">
+                  <p className="text-gray-500 text-xs flex items-center justify-center space-x-1 md:space-x-2 text-center flex-wrap">
+                    <svg className="w-3 h-3 md:w-4 md:h-4 text-green-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                    </svg>
+                    <span className="whitespace-nowrap">End-to-end encrypted</span>
+                    <span className="hidden sm:inline">•</span>
+                    <span className="whitespace-nowrap">Secure messaging</span>
+                    <span className="hidden sm:inline">•</span>
+                    <span className="whitespace-nowrap">Privacy focused</span>
                   </p>
                 </div>
               </div>
