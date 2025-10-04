@@ -54,7 +54,7 @@ const io = socketIo(server, {
 // });
 
 // // Connect to MongoDB
-// connectDB();
+connectDB();
 
 // // ========================
 // // MIDDLEWARE
